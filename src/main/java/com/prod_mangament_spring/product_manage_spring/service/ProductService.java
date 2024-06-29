@@ -3,187 +3,151 @@ package com.prod_mangament_spring.product_manage_spring.service;
 import java.util.ArrayList;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.modelmapper.ModelMapper;
 
-import com.prod_mangament_spring.product_manage_spring.product_entity.Product;
+import com.prod_mangament_spring.product_manage_spring.DAO.entity.Product;
+import com.prod_mangament_spring.product_manage_spring.DAO.repository.ProductRepository;
+import com.prod_mangament_spring.product_manage_spring.DTO.ProductCreateDTO;
+import com.prod_mangament_spring.product_manage_spring.DTO.ProductUpdateDTO;
+
 
 @Service
 public class ProductService {
 
+    // @Autowired
+    // private JdbcTemplate jdbcTemplate;
+
     @Autowired
-    private JdbcTemplate jdbcTemplate;
+    private ProductRepository productRepository;
 
-    public String addProductService( Product product )
-    {
-        final String insertQuery = "INSERT INTO Products (ProductName , Price , Stock , Visibility , ProductID) "+
-                                    "VALUES ( ? , ? , ? , ? , ? )";
+    @Autowired
+    private ModelMapper modelMapper;
+
+    @Autowired
+    private CategoryService categoryService;
+
+    @Autowired
+    private SellerService sellerService;
 
 
-        try {
-
-            jdbcTemplate.update(insertQuery, product.getProductName() , product.getPrice() , product.getStock() , true , product.getId());
-            
-        } catch (Exception sqlException) {
-            sqlException.printStackTrace();
-            return "Failed to add the data into DB";
-        }
-
-        return product.getProductName()+" added to the DB...";
-    }
-
-    public Object getProductByIdService( String id )
+    public String addProductService( ProductCreateDTO productDTO )
     {
 
-        Product product = new Product();
-
-        try {
-
-            final String queryGetProduct = "SELECT * FROM products WHERE productid = ?";
-
-            product = jdbcTemplate.queryForObject(queryGetProduct, (rs, rowNum) -> {
-                
-                Product prod = new Product();
-                prod.setId(rs.getString("productid"));
-                prod.setProductName(rs.getString("productname"));
-                prod.setPrice(rs.getLong("price"));
-                prod.setStock(rs.getLong("stock"));
-        
-                System.out.println(prod.getProductName());
-                
-                return prod;
-            } , id);
-
-            return product;
-            
-        } catch (Exception sqlException) {
-            sqlException.printStackTrace();
-            System.err.println("Failed to get product...");
-            return "The Product is not found...";
+        if( productDTO.getPrice() > 0 )
+        {
+            if( productDTO.getStock() >= 0 )
+            {
+                Product product = modelMapper.map( productDTO , Product.class );
+                product.getCategory().setName(categoryService.getCategory(productDTO.getCategory().getId()));
+                product.getSeller().setName(sellerService.getSellerById(productDTO.getSeller().getId()));
+                product.setCategoryName(categoryService.getCategory(productDTO.getCategory().getId()));
+                product.setSellerName(sellerService.getSellerById(productDTO.getSeller().getId()));
+                productRepository.save(product);
+                return product.getProductName()+" added to the DB...";
+            }
+            else
+            {
+                return "invalid Stock...";
+            }
         }
+        else
+        {
+            return "Invalid Price...";
+        }
+
         
     }
 
-    public String updateService(String id , Long value , int option )
+    public ProductUpdateDTO getProductByIdService( Long id )
     {
-        final String queryUpdateStock = "UPDATE products SET stock = ? WHERE productid = ?";
-        final String queryGetProductStock = "SELECT stock FROM products WHERE productid = ?";
 
-        switch (option) {
+        if( productRepository.existsById( id ) )
+        {
+            ProductUpdateDTO productDTO = modelMapper.map(productRepository.findById(id), ProductUpdateDTO.class);
+            return productDTO;
+        }
+        else
+        {
+            return null;
+        }
+        
+    }
 
-            case 1:
-            
-                final String queryUpdatePrice = "UPDATE products SET price = ? WHERE productid = ?";
-                if( value > 0 )
+    public String updateService(ProductUpdateDTO productDTO)
+    {
+        
+        if( productRepository.existsById(productDTO.getId()))
+        {
+            ProductUpdateDTO oldProductDTO = modelMapper.map(productRepository.findById(productDTO.getId()), ProductUpdateDTO.class); 
+            if( oldProductDTO.getId() == productDTO.getId() )
+            {
+                if( productDTO.getPrice() > 0 )
                 {
-                    try {
-                        jdbcTemplate.update(queryUpdatePrice, value , id);
-                        return "Price Updated successfully...";
-                    } catch (Exception sqlException) {
-                        sqlException.printStackTrace();
-                        System.err.println("Failed to update the data...");
-                        return "Failed to update the data...";
+                    if( productDTO.getStock() >= 0 )
+                    {
+                        productRepository.save(modelMapper.map(productDTO , Product.class));
+                        return "Update successfully...";
+                    }
+                    else
+                    {
+                        return "Invalid Stock...";
                     }
                 }
                 else
                 {
-                    return "Price is not possible to be negative or zero...";
+                    return "Invalid Price...";
                 }
-
-            case 2:
-                
-                try{
-
-                    Long actualStock = jdbcTemplate.queryForObject(queryGetProductStock, (rs , rowNum) -> rs.getLong("stock") , id );
-                    System.out.println(actualStock);
-                        if(value > 0)
-                        {
-                            jdbcTemplate.update(queryUpdateStock , actualStock +  value , id);
-                        }
-                        
-                    } catch (Exception sqlException) {
-                        sqlException.printStackTrace();
-                        System.err.println("Failed to update the data...");
-                        return "Failed to update the data...";
-                    }
             
-                    return "Add Stock updated successfully...";
-        
-            case 3:
-                
-                try {
-                    Long actualStock = jdbcTemplate.queryForObject(queryGetProductStock, (rs ,rowNum) -> rs.getLong("stock") , id);
-                    if( actualStock == 0 )
-                    {
-                        return "Out Of Stock";
-                    }
-                    else if(value > 0 && actualStock >= value)
-                    {
-                        jdbcTemplate.update(queryUpdateStock , (actualStock -  value) , id);
-                    }
-                    else
-                    {
-                        return "Invalid Stock the value should be between 0 - "+(actualStock+1);
-                    }
-                    
-                } catch (Exception sqlException) {
-                    sqlException.printStackTrace();
-                    System.err.println("Failed to update the data...");
-                    return "Failed to update the data...";
-                }
-        
-                return "Stock updated successfully...";
-
-            default:
-                return "Invalid Option";
         }
+        else
+        {
+            return "Product not found...";
+        }
+        
          
     }
-
-    public String deleteProductService( String id )
+    else
     {
-        final String queryDeleteProduct = "DELETE FROM products WHERE productid = ?";
-        
-        try {
-            jdbcTemplate.update(queryDeleteProduct, id);
-            return "Deleted successfully...";
-        } catch (Exception sqlException) {
-            sqlException.printStackTrace();
-        return "The product is not available...";
+        return "Product Not found...";
+    }
+}
+
+    public String deleteProductService( Long id )
+    {
+        if( productRepository.existsById(id) )
+        {
+            productRepository.deleteById(id);
+            return "Product deleted successfully...";
+        }
+        else
+        {
+            return "Product not found...";
         }
     }
  
-    public ArrayList<Product> requestAllProductsService()
+    public ArrayList<ProductUpdateDTO> requestAllProductsService()
     {
-        final String queryGetProductStock = "SELECT * FROM products";
-        ArrayList<Product> productList = new ArrayList<>();
+        ArrayList<ProductUpdateDTO> productDTOlist = new ArrayList<>();
 
-        productList = (ArrayList<Product>) jdbcTemplate.query(queryGetProductStock, (rs, rowNum) -> {
-            System.out.println("Get into create product...");
-            
-            Product prod = new Product();
-            prod.setId(rs.getString("productid"));
-            prod.setProductName(rs.getString("productname"));
-            prod.setPrice(rs.getLong("price"));
-            prod.setStock(rs.getLong("stock"));
-    
-            System.out.println(prod.getProductName());
-            
-            return prod;
+        ArrayList<Product> productList = (ArrayList<Product>) productRepository.findAll();
+
+        productList.stream().forEach(product -> {
+            productDTOlist.add(modelMapper.map(product, ProductUpdateDTO.class));
         });
 
-        return productList;
+        return productDTOlist;
     }
 
-    public String updatePurchaseService( ArrayList<Product> products_list )
-    {
-        String updateQuery = "UPDATE products SET stock = ? WHERE productid = ?";
-        for( Product prod : products_list )
-        {
-            jdbcTemplate.update(updateQuery, prod.getStock() , prod.getId());
-        }
+    // public String updatePurchaseService( ArrayList<Product> products_list )
+    // {
+    //     String updateQuery = "UPDATE products SET stock = ? WHERE productid = ?";
+    //     for( Product prod : products_list )
+    //     {
+    //         jdbcTemplate.update(updateQuery, prod.getStock() , prod.getId());
+    //     }
         
-        return "Inventory Update Successfull....";
-    }
+    //     return "Inventory Update Successfull....";
+    // }
     
 }

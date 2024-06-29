@@ -1,16 +1,15 @@
 package com.prod_mangament_spring.product_manage_spring.rest_controller;
 
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.prod_mangament_spring.product_manage_spring.product_entity.Product;
+import com.prod_mangament_spring.product_manage_spring.DTO.ProductCreateDTO;
+import com.prod_mangament_spring.product_manage_spring.DTO.ProductUpdateDTO;
 import com.prod_mangament_spring.product_manage_spring.service.ProductService;
 
 import java.util.ArrayList;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,51 +25,42 @@ public class ProductController {
     ProductService productService;
 
     @PostMapping("add")
-    public String addProduct(@RequestBody Product product) {
+    public String addProduct(@RequestBody ProductCreateDTO productDTO) {
 
-        return productService.addProductService(product);
+        return productService.addProductService(productDTO);
 
     }
 
     @GetMapping("get/{id}")
-    public ResponseEntity<Object> getProduct(@PathVariable String id) {
-        Object result =  productService.getProductByIdService(id);
-
-        if(result instanceof Product)
-        {
-            return ResponseEntity.ok().body((Product) result);
-        }
-        else
-        {
-            return ResponseEntity.ok().body((String) result);
-        }
+    public ProductUpdateDTO getProduct(@PathVariable Long id) {
+        return productService.getProductByIdService(id);
     }
     
 
     @PutMapping("update/{id}")
-    public String updatePrice(@RequestParam(value = "option") int option , @RequestParam(value = "value") Long value , @PathVariable String id) {
+    public String updatePrice(@RequestBody ProductUpdateDTO productDTO ) {
     
-        return productService.updateService(id, value , option);
+        return productService.updateService( productDTO );
 
     }
 
     @DeleteMapping("deleteProduct/{id}")
-    public String deleteProduct( @PathVariable String id ){
+    public String deleteProduct( @PathVariable Long id ){
 
         return productService.deleteProductService(id);
         
     }
 
     @GetMapping("getProducts")
-    public ArrayList<Product> requestAllProducts() {
+    public ArrayList<ProductUpdateDTO> requestAllProducts() {
         return productService.requestAllProductsService();
     }   
     
-    @PutMapping("updatePurchase")
-    public String updatePurchase(@RequestBody ArrayList<Product> products_list) {
+    // @PutMapping("updatePurchase")
+    // public String updatePurchase(@RequestBody ArrayList<Product> products_list) {
         
-        return productService.updatePurchaseService(products_list);
-    }
+    //     return productService.updatePurchaseService(products_list);
+    // }
     
     
     
